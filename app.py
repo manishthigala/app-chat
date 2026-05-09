@@ -23,12 +23,14 @@ CREATE TABLE IF NOT EXISTS users(
 conn.commit()
 conn.close()
 
-# Home Page
+
+# ================= USER PART =================
+
 @app.route('/')
 def home():
     return render_template("index.html")
 
-# Login
+
 @app.route('/login', methods=['POST'])
 def login():
 
@@ -47,28 +49,81 @@ def login():
     conn.close()
 
     session['user'] = username
-
     return redirect('/dashboard')
 
-# Dashboard
+
 @app.route('/dashboard')
 def dashboard():
 
     if 'user' not in session:
         return redirect('/')
 
-    return render_template(
-        "dashboard.html",
-        user=session['user']
-    )
+    return render_template("dashboard.html", user=session['user'])
 
-# Logout
+
 @app.route('/logout')
 def logout():
-
     session.pop('user', None)
-
     return redirect('/')
+
+
+# ================= ADMIN PART =================
+
+ADMIN_USER = "admin"
+ADMIN_PASS = "admin123"
+
+
+@app.route('/admin', methods=['GET', 'POST'])
+def admin():
+
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        if username == ADMIN_USER and password == ADMIN_PASS:
+            session['admin'] = True
+            return redirect('/admin/dashboard')
+        else:
+            return "Invalid Admin Login"
+
+    return """
+    <h2>Admin Login</h2>
+    <form method="POST">
+        <input name="username" placeholder="Admin username"><br><br>
+        <input name="password" type="password" placeholder="Admin password"><br><br>
+        <button type="submit">Login</button>
+    </form>
+    """
+
+
+@app.route('/admin/dashboard')
+def admin_dashboard():
+
+    if not session.get('admin'):
+        return redirect('/admin')
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, username, password FROM users")
+    users = cursor.fetchall()
+
+    conn.close()
+
+    html = "<h2>All Users</h2>"
+
+    for u in users:
+        html += f"<p>ID: {u[0]} | Username: {u[1]} | Password: {u[2]}</p>"
+
+    html += '<br><a href="/admin/logout">Logout</a>'
+    return html
+
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin', None)
+    return redirect('/admin')
+
 
 if __name__ == "__main__":
     app.run(debug=True)
